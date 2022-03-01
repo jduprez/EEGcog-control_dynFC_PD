@@ -2,11 +2,12 @@
 
 %% 1.1. Define basic param and add basic folders to matlab path
 
+
 path_base = 'F:\WJD\Simon Dynamic FC';
 mri_template = 'icbm'; % 'colin' for Colin27 or 'icbm' for ICBM152
 atlas = 'destrieux'; % 'desikan' for Desikan68 atlas or 'destrieux' for Destrieux148 atlas
 
-frequency = 'beta'
+frequency = 'beta';
 
 % Automatically add folders and subfolders (Code and Inputs) necessary for
 % loading variables and executing codes
@@ -14,15 +15,17 @@ addpath(genpath(['F:\WJD\Simon Dynamic FC\input4code\' mri_template]));
 addpath(genpath('C:\GitHub\EEGcog-control_dynFC_PD'));
 
 % Add openmeeg path
-setenv('PATH', [path_base '\input4code\Toolboxes\OpenMEEG\bin'])
-addpath([path_base '\input4code\Toolboxes\fieldtrip-20190224\external\openmeeg'])
+setenv('PATH', [path_base '\Toolboxes\OpenMEEG\bin'])
+addpath([path_base '\Toolboxes\fieldtrip-20190224\external\openmeeg'])
 
 % Add default fieldtrip path
 tmp = which('ft_defaults');
 if isempty(tmp)
-    addpath([path_base '\input4code\Toolboxes\fieldtrip-20190224']); %add defaults fieldtrip
+    addpath([path_base '\Toolboxes\fieldtrip-20190224']); %add defaults fieldtrip
     ft_defaults
 end
+
+
 
 %% 1.2. Define wMNE specification (prefer to keep these default params values)
 
@@ -33,11 +36,11 @@ source.SNR = 3; % signal to Noise Ratio
 %% 1.3. Define dynamic Functional Connectivity (dFC) specification
 
 dFC.conn_method = 'plv_dyn'; %'plv_dyn' for windowedPLV or 'wPLI' for windowedwPLI or 'plv_inst_pn' for instantaneous PLV
-if frequency == 'gamma'
+if strcmp('gamma', frequency)
     dFC.bpfreq = [30 45]; %frequency band of interest
     dFC.window.size = 0.16; % sliding window length in seconds (for example calculated for 6cycles,CentralFreq=35 ==> 6/35=0.17s), in case of 'plv_inst_pn' this input is meaningless
     dFC.window.step = 0.016; % step between windows in seconds (for example 90% overlapping=10/100*window_size), in case of 'plv_inst_pn' this input is meaningless   
-elseif frequency == 'beta'
+elseif strcmp('beta', frequency)
     dFC.bpfreq = [12 25]; %frequency band of interest
     dFC.window.size = 0.3243; % sliding window length in seconds (for example calculated for 6cycles,CentralFreq=35 ==> 6/35=0.17s), in case of 'plv_inst_pn' this input is meaningless
     dFC.window.step = 0.03243; % step between windows in seconds (for example 90% overlapping=10/100*window_size), in case of 'plv_inst_pn' this input is meaningless
@@ -92,8 +95,7 @@ alpha 0.3
 
 cfg = [];
 cfg.method = 'openmeeg'; 
-subvol = ft_prepare_headmodel(cfg, bnd); % ctf/mm
-
+subvol = ft_prepare_headmodel(cfg, bnd); % SOMEHOW THIS DOESNT WORK, OpenMEEG NOT FOUND.
 %% 2.2 Load Some Variables for further usage (Run the section as it is)
 
 % Load already computed and saved variables (as we are dealing with template
@@ -128,7 +130,7 @@ for sub_ind = 1:nb_sub
     
     %%%%%%%%%%%%%%%%%%%%%% Create and insert your own data structure input here, uncomment the line below only if you want to see an example of data structure format %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
     %load([path_base '\Inputs\data_example_ft.mat']); % refer to code_for_inputs.m for more details about computation
-    load(['D:\JoanD\EEGCOG_data_4_DynEEG\' ftrialname(sub_ind).name])
+    load([path_base '\Data\' ftrialname(sub_ind).name])
     %load(['D:\JoanD\EEGCOG_data_4_DynEEG\' ftrialname(sub_ind).name '_source_filter.mat'])
     nb_trials = size(data.trial, 2)-1; % because first trial is somehow empty
     data.trial(1) = []; % remove first col
