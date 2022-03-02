@@ -45,7 +45,7 @@ elseif strcmp('beta', frequency)
     dFC.window.size = 0.3243; % sliding window length in seconds (for example calculated for 6cycles,CentralFreq=35 ==> 6/35=0.17s), in case of 'plv_inst_pn' this input is meaningless
     dFC.window.step = 0.03243; % step between windows in seconds (for example 90% overlapping=10/100*window_size), in case of 'plv_inst_pn' this input is meaningless
 else
-    'Frequency is either absent or incompatible'
+    error('Frequency is either absent or incompatible')
 end
 
 
@@ -172,3 +172,72 @@ for sub_ind = 1:nb_sub
 disp(['subject ' num2str(sub_ind) ' is done'])
 end
 
+
+%% Calculate number of optimal ICs to search for using DIFFIT
+
+% 1- Define some variables for ICA (To manipulate by the user)
+
+cd([path_base '\Results\FCmat\CAT\' frequency])
+
+if strcmp(frequency, 'gamma')
+    matname = dir('*3045.mat');
+elseif strcmp(frequency, 'beta')
+    matname = dir('*1225.mat');
+else
+    error('Frequency is either absent or incompatible')
+end
+
+
+conn_method    = dFC.conn_method; %plv_dyn or wPLI or plv_inst_pn
+nb_sub         = length(matname); %number of subjects in the analysis
+nROIs          = atlas; % 148 destrieux, 68 desikan
+% NCs            = 6; %number of output components (this is a parameter to manipulate with, till now not found a specific automatic method to determine optimal number of independent components)
+ICA_val        = 1; % 1=ICA-JADE, 2=ICA-InfoMax, 3=ICA-SOBI, 4=ICA-FastICA, 5=ICA-CoM2, 6:ICA-PSAUD
+%%% cfg.val is a parameter to manipulate the subtype of ICA to use in the analysis, 
+%%% based on our previous analysis, it is preferred to apply ICA that uses high statistical order like JADE,InfoMax,CoM2 and PSAUD
+%%% so for exp, we can start by testing ICA-JADE (cfg.val=1) 
+
+
+for i=1:nb_sub
+cmat_list{1} = [matname(i).name];
+%% 2- Load and Concatenate cmat of all subjs and trials for once (to save time and not to repeat for every number of compo)
+cfg.data        = cmat_list;
+cfg.n_parcels   = nROIs;
+[cmat_all,index,sub_trials,cmat_time]=load_and_concatenate(cfg); %all
+%% 3- Calculate DIFFIT values based on 'goodness_of_fit' algorthm to select the optimal number of components for a range of input nb_compo values
+% References:
+% -Tewarie, P., Liuzzi, L., O’Neill, G.C., Quinn, A.J., Griffa, A., Woolrich, M.W., Stam, C.J., Hillebrand, A., Brookes, M.J., 2019b. Tracking dynamic brain networks using high temporal resolution MEG measures of functional connectivity. NeuroImage
+% -Zhu, Y., Liu, J., Ye, C., Mathiak, K., Astikainen, P., Ristaniemi, T., Cong, F., 2020. Discovering dynamic task-modulated functional networks with specific spectral modes using MEG. NeuroImage
+% -Timmerman, M.E., Kiers, H.A., 2000. Three-mode principal components analysis: choosing the numbers of components and sensitivity to local optima. Br J Math Stat Psychol
+% -Wang, D., Zhu, Y., Ristaniemi, T., Cong, F., 2018. Extracting multi-mode ERP features using fifth-order nonnegative tensor decomposition. J Neurosci Methods
+nb_min=3; %the minimum nb of components to evaluate DIFFIT on (minimum allowed value for nb_min is 2)
+nb_max=10; %the maximum nb of components to evaluate DIFFIT on (here it is 12 just an example, however this is to be estimated by the user)
+for nb=nb_min-1:nb_max+1
+cfg             = [];
+cfg.NCs         =  nb;
+cfg.data        = cmat_list;
+cfg.n_parcels   = nROIs;
+cfg.val         = ICA_val;
+cfg.cmat_all    = cmat_all;
+cfg.index       = index;
+cfg.sub_trials  = sub_trials;
+cfg.cmat_time   = cmat_time;
+tic
+results         = go_decomposeConnectome_SS_ICA_noload(cfg); %all
+timeElapsed = toc
+mat=results.cmat_all;
+matprime=results.mixing*results.sig;
+F(nb,:)=goodnessOfFit_edit(matprime',mat','NRMSE');
+FIT(nb,1)=mean(F(nb,:),2);
+end
+for J=nb_min:nb_max
+DIFFIT(J)=(FIT(J)-FIT(J-1))/(FIT(J+1)-FIT(J));
+end
+[max_DIFFIT,nb_opt]=max(DIFFIT); %nb_opt is considered as the optimal nb of compo based on goodness of fit approach
+GoF(i).F = F;
+GoF(i).FIT = FIT;
+GoF(i).nb_opt = nb_opt;
+GoF(i).max_DIFFIT = max_DIFFIT;
+disp(['subject n ' num2str(i) ' done'])
+clear 'cmat_list' 'cmat_all' 'index' 'sub_trials' 'cmat_time' 'results' 'mat' 'matprime' 'cfg' 'cmat_2d' 'cmat_red' 'cmat'
+end
