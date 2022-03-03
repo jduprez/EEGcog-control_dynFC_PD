@@ -6,7 +6,7 @@
 path_base = 'F:\WJD\Simon Dynamic FC';
 mri_template = 'icbm'; % 'colin' for Colin27 or 'icbm' for ICBM152
 atlas = 'destrieux'; % 'desikan' for Desikan68 atlas or 'destrieux' for Destrieux148 atlas
-
+srate = 1000; % Define sampling rate
 frequency = 'beta';
 
 % Automatically add folders and subfolders (Code and Inputs) necessary for
@@ -220,17 +220,17 @@ for i=1:nb_sub
     nb_min=3; %the minimum nb of components to evaluate DIFFIT on (minimum allowed value for nb_min is 2)
     nb_max=10; %the maximum nb of components to evaluate DIFFIT on (here it is 12 just an example, however this is to be estimated by the user)
     for nb=nb_min-1:nb_max+1
-        cfg             = [];
-        cfg.NCs         =  nb;
-        cfg.data        = cmat_list;
-        cfg.n_parcels   = nROIs;
-        cfg.val         = ICA_val;
-        cfg.cmat_all    = cmat_all;
-        cfg.index       = index;
-        cfg.sub_trials  = sub_trials;
-        cfg.cmat_time   = cmat_time;
+        cfg = [];
+        cfg.NCs =  nb;
+        cfg.data = cmat_list;
+        cfg.n_parcels = nROIs;
+        cfg.val = ICA_val;
+        cfg.cmat_all = cmat_all;
+        cfg.index = index;
+        cfg.sub_trials = sub_trials;
+        cfg.cmat_time = cmat_time;
         tic
-        results         = go_decomposeConnectome_SS_ICA_noload(cfg); %all
+        results = go_decomposeConnectome_SS_ICA_noload(cfg); %all
         timeElapsed = toc
         mat=results.cmat_all;
         matprime=results.mixing*results.sig;
@@ -246,7 +246,241 @@ for i=1:nb_sub
     GoF(i).nb_opt = nb_opt;
     GoF(i).max_DIFFIT = max_DIFFIT;
     disp(['subject n ' num2str(i) ' done'])
-    clear 'cmat_list' 'cmat_all' 'index' 'sub_trials' 'cmat_time' 'results' 'mat' 'matprime' 'cfg' 'cmat_2d' 'cmat_red' 'cmat'
+    clear 'cmat_all' 'index' 'sub_trials' 'cmat_time' 'results' 'mat' 'matprime' 'cfg' 'cmat_2d' 'cmat_red' 'cmat'
 end
 
 save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'GoF.mat'], 'GoF', '-v7.3')
+
+
+
+% Configuration for states (ICA algo)
+%% 2- Load and Concatenate cmat of all subjs and trials for once (to save time and not to repeat for every number of compo)
+
+cfg.data        = cmat_list;   
+cfg.n_parcels   = nROIs;
+
+[cmat_all,index,sub_trials,cmat_time]=load_and_concatenate(cfg); % all
+
+
+%% Run ICA 
+
+cfg = [];
+cfg.NCs = mean([GoF.nb_opt]);
+cfg.data = cmat_list;
+cfg.n_parcels = nROIs;
+cfg.val = ICA_val;
+cfg.cmat_all = cmat_all;
+cfg.index = index;
+cfg.sub_trials = sub_trials;
+cfg.cmat_time = cmat_time;
+results = go_decomposeConnectome_SS_ICA_noload(cfg); %all
+
+% Permutation testing
+% Configuration for null distribution (Sign-Flip approach)
+
+cfg_null                   = [];
+cfg_null.p                 = 0.05;
+cfg_null.bonferroni_factor = 2*cfg.NCs; % 2 tails x NCs ICs
+cfg_null.nperms =10000; % If nperms not define, default is to take the binomial coeff of (nsub, half nsub) which is very high !
+perms = go_testNetworks_general(cfg_null, results); 
+
+save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'CAT_IC_plvdyn.mat'], 'results', '-v7.3');
+save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'perms.mat'],'perms');
+
+
+% Backfitting
+
+if strcmp(frequency, 'beta')
+    CATfile = dir(['F:\WJD\Simon Dynamic FC\Results\FCmat\CAT\', frequency, '\', '*_incong_wplv1225.mat']);
+elseif strcmp(frequency, 'gamma')
+    CATfile = dir(['F:\WJD\Simon Dynamic FC\Results\FCmat\CAT\', frequency, '\', '*_incong_wplv3045.mat']);
+else
+    error('Frequency is either absent or incompatible')
+end
+path_base     = 'F:\DynCogPD'; % path of the main folder
+
+% Define the controls and patients indices
+
+HC = [1, 3, 6, 10, 11, 13, 16, 17, 18, 19];
+PD = [2, 4, 5, 7, 8, 9, 12, 14, 15, 20];
+
+nsub = size(HC, 2) + size(PD, 2);
+
+NCs = cfg.NCs;
+
+path_states = 'F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT'; % path of the ICA results
+path_conn = ['F:\WJD\Simon Dynamic FC\Results\FCmat\CAT\', frequency];
+
+
+if strcmp(frequency, 'beta')
+    band_interval = [12 25];
+elseif strcmp(frequency, 'gamma')
+    band_interval=[30 45]; % band of interest
+else
+    error('Frequency is either absent or incompatible')
+end
+
+
+%% DEFINE CMAT LIST AND LOAD GROUP ICA + PERMS RESULTS FOR HC + PD
+
+% HC
+for i = 1:size(HC, 2)
+    cmat_list_HC{i} = [path_conn '\' CATfile(HC(i)).name]; % cmat_list
+end
+
+% PD
+for i = 1:size(PD, 2)
+    cmat_list_PD{i} = [path_conn '\' CATfile(PD(i)).name]; % cmat_list
+end
+
+% If backfitting section is not ran right after the rest of the code,
+% uncomment the next lines to load ICA results
+
+%if strcomp(frequency, 'beta')
+%    load([path_state '\CAT_IC_plvdyn1225_5IC.mat']); % ICA results on HC
+%    load([path_state_HC '\perms_cat_beta.mat']); % perms results on HC
+%else
+%    load([path_state '\CAT_IC_plvdyn3045_5IC.mat']); % ICA results on HC
+%    load([path_state_HC '\perms_cat_gamma.mat']); % perms results on HC
+%end
+
+
+% Determine the index of onset time, should be the same between grps
+ind_0s = find(results.time==0);
+if(isempty(ind_0s))
+    [mmin,ind_0s] = min(abs(results.time));
+end
+
+
+%% 3. EXTRACT AUTOMATICALLY SIGNIFICANT STATES FOR HC + PD
+
+% 3.1. Define minimum duration for significance.
+
+ncycles = 3;
+d_cy = ncycles*(round(srate/band_interval(1)));
+
+
+% 3.2. Extract significant states with corresponding significance time (based on null distribution + 3 cycles surviving)
+
+[isSignif_NCs,timeSignif] = isSignif(results, perms, NCs, ind_0s, d_cy);
+
+kept_net = [isSignif_NCs];
+
+
+% 3.3. Store kept significant maps
+
+cCAT=0; 
+for i=1:NCs
+    if(isSignif_NCs{i})
+        cCAT = cCAT+1;
+        states_maps(:,:,cCAT) = results.maps(:,:,i);
+    end
+end
+
+% 3.4. Combine all significant states maps (for HC followed by PD) in one variable: states_maps_all
+states_maps_all = zeros(nROIs,nROIs,cCAT);
+states_maps_all(:,:,1:cCAT) = states_maps(:,:,1:cCAT);
+
+%% APPLY BACKFITTING 
+
+% Configuration for backfitting algo
+
+cfg_algo = [];
+cfg_algo.threshnet_meth = 'no'; % only one choice is implemented in the code
+cfg_algo.corr_meth = 'corr2'; % correlation as spatial similarity measure
+cfg_algo.cCAT = cCAT;
+cfg_algo.states_maps_all = states_maps_all;
+
+
+% 4.2. Run backfitting algo for HC + PD
+
+[corr_tw_HC,max_tw_HC,ind_tw_HC,cmat_allHC] = do_backfitting(cfg_algo,cmat_list_HC,size(HC, 2));
+[corr_tw_PD,max_tw_PD,ind_tw_PD,cmat_allPD] = do_backfitting(cfg_algo,cmat_list_PD,size(PD, 2));
+
+
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\backfitting_HC.mat'], 'corr_tw_HC', 'max_tw_HC', 'ind_tw_HC');
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\backfitting_PD.mat'], 'corr_tw_PD', 'max_tw_PD', 'ind_tw_PD');
+
+
+%% CALCULATE MICROSTATS PARAMS FOR HC + PD
+
+% 5.1. Configuration for Microstats extraction
+
+cfg_ms           = [];
+cfg_ms.cCAT       = cCAT; % number of significant kept states
+cfg_ms.ind_0s    = ind_0s; % onset time
+cfg_ms.totaltime = results.time(end); % total time duration after onset (in sec)
+cfg_ms.deltat    = results.time(end)-results.time(end-1); % difference time between two time windows (in sec)
+
+
+% 5.2. Extract Microstats for HC + PD
+
+microparams_HC = extract_microstates(cfg_ms,corr_tw_HC,ind_tw_HC,cmat_allHC,size(HC, 2));
+microparams_PD = extract_microstates(cfg_ms,corr_tw_PD,ind_tw_PD,cmat_allPD,size(PD, 2));
+
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\microparam_HC.mat'], 'microparams_HC');
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\microparams_PD.mat'], 'microparams_PD');
+
+
+
+% 5.3. Extract parameters
+
+n_net = size(microparams_HC.fraction_covtime, 2);
+
+frac_covtime_HC = zeros(size(HC, 2), n_net);
+for neti = 1:n_net
+    frac_covtime_HC(:, neti) = microparams_HC.fraction_covtime{1, neti};
+end
+frac_covtime_PD = zeros(size(PD, 2), n_net);
+for neti = 1:n_net
+    frac_covtime_PD(:, neti) = microparams_PD.fraction_covtime{1, neti};
+end
+
+freq_occurence_HC = zeros(size(HC, 2), n_net);
+for neti = 1:n_net
+    freq_occurence_HC(:, neti) = microparams_HC.freq_occurence{1, neti};
+end
+freq_occurence_PD = zeros(size(PD, 2), n_net);
+for neti = 1:n_net
+    freq_occurence_PD(:, neti) = microparams_PD.freq_occurence{1, neti};
+end
+
+avg_lifespan_HC = zeros(size(HC, 2), n_net);
+for neti = 1:n_net
+    avg_lifespan_HC(:, neti) = microparams_HC.avg_lifespan{1, neti};
+end
+avg_lifespan_PD = zeros(size(PD, 2), n_net);
+for neti = 1:n_net
+    avg_lifespan_PD(:, neti) = microparams_PD.avg_lifespan{1, neti};
+end
+
+GEV_HC = zeros(size(HC, 2), n_net);
+for neti = 1:n_net
+    GEV_HC(:, neti) = microparams_HC.GEV{1, neti};
+end
+GEV_PD = zeros(size(PD, 2), n_net);
+for neti = 1:n_net
+    GEV_PD(:, neti) = microparams_PD.GEV{1, neti};
+end
+
+TR_HC = zeros(n_net, n_net, 10);
+for subi = 1:size(HC, 2)
+    TR_HC(:,:,subi) = microparams_HC.TR{1, subi};
+end
+TR_PD = zeros(n_net, n_net, 21);
+for subi = 1:size(PD, 2)
+    TR_PD(:,:,subi) = microparams_PD.TR{1, subi};
+end
+
+TRsym0_HC = zeros(n_net, n_net, 10);
+for subi = 1:size(HC, 2)
+    TRsym0_HC(:,:,subi) = microparams_HC.TRsym0{1, subi};
+end
+TRsym0_PD = zeros(n_net, n_net, 21);
+
+for subi = 1:size(PD, 2)
+    TRsym0_PD(:,:,subi) = microparams_PD.TRsym0{1, subi};
+end
+
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\microparam_HC.mat'], 'microparams_HC');
+save(['F:\WJD\Simon Dynamic FC\Results\Backfitting_microstates_parameters\HC_PD_CAT\' frequency '\microparams_PD.mat'], 'microparams_PD');
