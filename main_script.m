@@ -249,7 +249,7 @@ for i=1:nb_sub
     clear 'cmat_all' 'index' 'sub_trials' 'cmat_time' 'results' 'mat' 'matprime' 'cfg' 'cmat_2d' 'cmat_red' 'cmat'
 end
 
-save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'GoF.mat'], 'GoF', '-v7.3')
+save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'GoF.mat'], 'GoF', '-v7.3')
 
 
 
@@ -265,7 +265,7 @@ cfg.n_parcels   = nROIs;
 %% Run ICA 
 
 cfg = [];
-cfg.NCs = mean([GoF.nb_opt]);
+cfg.NCs = round(mean([GoF.nb_opt]));
 cfg.data = cmat_list;
 cfg.n_parcels = nROIs;
 cfg.val = ICA_val;
@@ -284,8 +284,8 @@ cfg_null.bonferroni_factor = 2*cfg.NCs; % 2 tails x NCs ICs
 cfg_null.nperms =10000; % If nperms not define, default is to take the binomial coeff of (nsub, half nsub) which is very high !
 perms = go_testNetworks_general(cfg_null, results); 
 
-save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'CAT_IC_plvdyn.mat'], 'results', '-v7.3');
-save(['F:\WJD\Simon Dynamic FC\Results\ICA\CAT\' frequency '\' 'perms.mat'],'perms');
+save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'CAT_IC_plvdyn.mat'], 'results', '-v7.3');
+save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'perms.mat'],'perms');
 
 
 % Backfitting
