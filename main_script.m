@@ -7,7 +7,7 @@ path_base = 'F:\WJD\Simon Dynamic FC';
 mri_template = 'icbm'; % 'colin' for Colin27 or 'icbm' for ICBM152
 atlas = 'destrieux'; % 'desikan' for Desikan68 atlas or 'destrieux' for Destrieux148 atlas
 srate = 1000; % Define sampling rate
-frequency = 'beta';
+frequency = 'gamma';
 
 % Automatically add folders and subfolders (Code and Inputs) necessary for
 % loading variables and executing codes
@@ -256,6 +256,10 @@ save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'GoF.mat'],
 % Configuration for states (ICA algo)
 %% 2- Load and Concatenate cmat of all subjs and trials for once (to save time and not to repeat for every number of compo)
 
+for i=1:nb_sub
+    cmat_list{i} = [matname(i).name];
+end
+
 cfg.data        = cmat_list;   
 cfg.n_parcels   = nROIs;
 
@@ -263,7 +267,6 @@ cfg.n_parcels   = nROIs;
 
 
 %% Run ICA 
-
 cfg = [];
 cfg.NCs = round(mean([GoF.nb_opt]));
 cfg.data = cmat_list;
@@ -356,13 +359,14 @@ end
 
 % 3.1. Define minimum duration for significance.
 
-ncycles = 3;
+ncycles = 1;
 d_cy = ncycles*(round(srate/band_interval(1)));
 
 
 % 3.2. Extract significant states with corresponding significance time (based on null distribution + 3 cycles surviving)
 
-[isSignif_NCs,timeSignif] = isSignif(results, perms, NCs, ind_0s, d_cy);
+[isSignif_NCs,timeSignif] = isSignif(results, perms, NCs, ind_0s);
+%[isSignif_NCs,timeSignif] = isSignif_cycle(results, perms, NCs, ind_0s, d_cy);
 
 kept_net = [isSignif_NCs];
 
