@@ -7,7 +7,7 @@ path_base = 'F:\WJD\Simon Dynamic FC';
 mri_template = 'icbm'; % 'colin' for Colin27 or 'icbm' for ICBM152
 atlas = 'destrieux'; % 'desikan' for Desikan68 atlas or 'destrieux' for Destrieux148 atlas
 srate = 1000; % Define sampling rate
-frequency = 'gamma';
+frequency = 'beta';
 
 % Automatically add folders and subfolders (Code and Inputs) necessary for
 % loading variables and executing codes
@@ -39,7 +39,7 @@ dFC.conn_method = 'plv_dyn'; %'plv_dyn' for windowedPLV or 'wPLI' for windowedwP
 if strcmp('gamma', frequency)
     dFC.bpfreq = [30 45]; %frequency band of interest
     dFC.window.size = 0.16; % sliding window length in seconds (for example calculated for 6cycles,CentralFreq=35 ==> 6/35=0.17s), in case of 'plv_inst_pn' this input is meaningless
-    dFC.window.step = 0.016; % step between windows in seconds (for example 90% overlapping=10/100*window_size), in case of 'plv_inst_pn' this input is meaningless   
+    dFC.window.step = 0.016; % step between windows in seconds (for example 90% overlapping=10/100*window_size), in case of 'plv_inst_pn' this input is meaningless
 elseif strcmp('beta', frequency)
     dFC.bpfreq = [12 25]; %frequency band of interest
     dFC.window.size = 0.3243; % sliding window length in seconds (for example calculated for 6cycles,CentralFreq=35 ==> 6/35=0.17s), in case of 'plv_inst_pn' this input is meaningless
@@ -55,7 +55,7 @@ end
 % when we are using template MRI): Output: subvol (=headmodel). Can be saved and used after loading instead of computing several times.
 
 %load realigned MRI saved in Inputs
-load([path_base '\input4code\' mri_template '\mri_' mri_template '_realign.mat']); 
+load([path_base '\input4code\' mri_template '\mri_' mri_template '_realign.mat']);
 
 % BEM Headmodel: Compute the BEM headmodel using OpenMEEG
 
@@ -65,7 +65,7 @@ segmentedmri = ft_volumesegment(cfg, mri_realign); %ctf/mm
 
 cfg = [];
 cfg.method = 'headshape';
-brain = ft_read_headshape([path_base '\input4code\' mri_template '\tess_innerskull_' mri_template '.mat']); % load the innerskull template used in Brainstorm 
+brain = ft_read_headshape([path_base '\input4code\' mri_template '\tess_innerskull_' mri_template '.mat']); % load the innerskull template used in Brainstorm
 brain_mm = ft_convert_units(brain,'mm');
 cfg.headshape = brain_mm;
 cfg.numvertices = [3000];
@@ -94,7 +94,7 @@ ft_plot_mesh(bnd(3), 'edgecolor', 'none', 'facecolor', 'b')
 alpha 0.3
 
 cfg = [];
-cfg.method = 'openmeeg'; 
+cfg.method = 'openmeeg';
 subvol = ft_prepare_headmodel(cfg, bnd); % SOMEHOW THIS DOESNT WORK, OpenMEEG NOT FOUND.
 %% 2.2 Load Some Variables for further usage (Run the section as it is)
 
@@ -117,9 +117,9 @@ ftrialname = dir('*_incong.mat');
 
 nb_sub=length(ftrialname); %number of subjects
 fs=1000; %sampling frequency
-pre_samples=700; %nb samples before trial onset 
+pre_samples=700; %nb samples before trial onset
 post_samples=1200; %nb samples after trial onset
-nb_samples=1901; %total number of samples in each trial 
+nb_samples=1901; %total number of samples in each trial
 nb_chan=199; %number of channels
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -128,15 +128,15 @@ nb_chan=199; %number of channels
 for sub_ind = 1:nb_sub
     cmat=[];
     
-    %%%%%%%%%%%%%%%%%%%%%% Create and insert your own data structure input here, uncomment the line below only if you want to see an example of data structure format %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    %%%%%%%%%%%%%%%%%%%%%% Create and insert your own data structure input here, uncomment the line below only if you want to see an example of data structure format %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %load([path_base '\Inputs\data_example_ft.mat']); % refer to code_for_inputs.m for more details about computation
     load([path_base '\Data\' ftrialname(sub_ind).name])
     %load(['D:\JoanD\EEGCOG_data_4_DynEEG\' ftrialname(sub_ind).name '_source_filter.mat'])
     nb_trials = size(data.trial, 2)-1; % because first trial is somehow empty
     data.trial(1) = []; % remove first col
     data.time(1) = []; % remove first col
-
-    % Create your own data structure with the following fields: 
+    
+    % Create your own data structure with the following fields:
     % data.label: cell of length nb_chan, each cell is a string of channels or electrodes labels (for example in case of EGI257, we can label electrodes from E1 to E256 and Cz for the last electrodes as a reference;
     % data.fsample: int indicating sampling frequency of data, in our case =fs;
     % data.trial: the segmented data, cell of length nb_trials, each cell is 2D matrix [nb_chan*nb_samples];
@@ -152,24 +152,24 @@ for sub_ind = 1:nb_sub
     cfg.weightLimit = source.weightLimit; % param for depth weighting limit
     cfg.SNR = source.SNR; % Signal to Noise Ratio
     filters = go_source_reconstruction(cfg,data,subvol,subgrid,scout_scs.orients);
-
+    
     % Dynamic FC Computation
     cfg = [];
-    cfg.window.size = dFC.window.size; % sliding window length in seconds 
-    cfg.window.step = dFC.window.step; % step between windows in seconds 
+    cfg.window.size = dFC.window.size; % sliding window length in seconds
+    cfg.window.step = dFC.window.step; % step between windows in seconds
     cfg.bpfreq = dFC.bpfreq; % frequency band of interest
     cfg.prestim = pre_samples/fs; % prestimulus time in seconds
     cfg.poststim = post_samples/fs; % poststimulus time in seconds
     cfg.conn_method = dFC.conn_method; % FC method
     cfg.labels = scout_labels;
     cmat = go_dynamicFC(cfg,filters,data);
-
-
+    
+    
     save(['F:\WJD\Simon Dynamic FC\Results\FCmat\CAT\' frequency '\' ftrialname(sub_ind).name '_source_filter.mat'], 'filters', '-v7.3')
-
+    
     save(['F:\WJD\Simon Dynamic FC\Results\FCmat\CAT\' frequency '\' ftrialname(sub_ind).name '_incong_wplv3045.mat'], 'cmat', '-v7.3')
-
-disp(['subject ' num2str(sub_ind) ' is done'])
+    
+    disp(['subject ' num2str(sub_ind) ' is done'])
 end
 
 
@@ -200,9 +200,9 @@ end
 
 % NCs            = 6; %number of output components (this is a parameter to manipulate with, till now not found a specific automatic method to determine optimal number of independent components)
 ICA_val        = 1; % 1=ICA-JADE, 2=ICA-InfoMax, 3=ICA-SOBI, 4=ICA-FastICA, 5=ICA-CoM2, 6:ICA-PSAUD
-%%% cfg.val is a parameter to manipulate the subtype of ICA to use in the analysis, 
+%%% cfg.val is a parameter to manipulate the subtype of ICA to use in the analysis,
 %%% based on our previous analysis, it is preferred to apply ICA that uses high statistical order like JADE,InfoMax,CoM2 and PSAUD
-%%% so for exp, we can start by testing ICA-JADE (cfg.val=1) 
+%%% so for exp, we can start by testing ICA-JADE (cfg.val=1)
 
 
 for i=1:nb_sub
@@ -233,7 +233,7 @@ for i=1:nb_sub
         results = go_decomposeConnectome_SS_ICA_noload(cfg); %all
         timeElapsed = toc
         mat=results.cmat_all;
-        matprime=results.mixing*results.sig;
+        matprime=results.mixing*resultms.sig;
         F(nb,:)=goodnessOfFit_edit(matprime',mat','NRMSE');
         FIT(nb,1)=mean(F(nb,:),2);
     end
@@ -260,13 +260,13 @@ for i=1:nb_sub
     cmat_list{i} = [matname(i).name];
 end
 
-cfg.data        = cmat_list;   
+cfg.data        = cmat_list;
 cfg.n_parcels   = nROIs;
 
 [cmat_all,index,sub_trials,cmat_time]=load_and_concatenate(cfg); % all
 
 
-%% Run ICA 
+%% Run ICA
 cfg = [];
 cfg.NCs = round(mean([GoF.nb_opt]));
 cfg.data = cmat_list;
@@ -285,10 +285,25 @@ cfg_null                   = [];
 cfg_null.p                 = 0.05;
 cfg_null.bonferroni_factor = 2*cfg.NCs; % 2 tails x NCs ICs
 cfg_null.nperms =10000; % If nperms not define, default is to take the binomial coeff of (nsub, half nsub) which is very high !
-perms = go_testNetworks_general(cfg_null, results); 
+perms = go_testNetworks_general(cfg_null, results);
 
 save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'CAT_IC_plvdyn.mat'], 'results', '-v7.3');
 save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'perms.mat'],'perms');
+
+% Extract FC matrices for network plotting
+
+NCs = round(mean([GoF.nb_opt]));
+nROIs = 148;
+thresholded_mats = zeros(nROIs, nROIs, NCs);
+degrees = zeros(nROIs, NCs);
+for i = 1:NCs
+    temp_mat = threshold_FCmat(squeeze(results.maps(:,:,i)), 0.995,'thresh_conn');
+    temp_mat(isnan(temp_mat)) = 0;
+    thresholded_mats(:,:,i) = logical(temp_mat);
+    degrees(:, i) = degrees_und(squeeze(thresholded_mats(:,:,i))); % Needs Brain Connectivity Toolbox
+    xlswrite(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\brainnet_files\ICnet_' num2str(i), '.xlsx'], squeeze(thresholded_mats(:,:, i)))
+    xlswrite(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\brainnet_files\ICnet_' num2str(i), '_degree.xlsx'], squeeze(degrees(:, i)))
+end
 
 
 % Backfitting
@@ -373,7 +388,7 @@ kept_net = [isSignif_NCs];
 
 % 3.3. Store kept significant maps
 
-cCAT=0; 
+cCAT=0;
 for i=1:NCs
     if(isSignif_NCs{i})
         cCAT = cCAT+1;
@@ -385,7 +400,7 @@ end
 states_maps_all = zeros(nROIs,nROIs,cCAT);
 states_maps_all(:,:,1:cCAT) = states_maps(:,:,1:cCAT);
 
-%% APPLY BACKFITTING 
+%% APPLY BACKFITTING
 
 % Configuration for backfitting algo
 
