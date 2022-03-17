@@ -222,3 +222,23 @@ for i=2:length(matname)
     %save(['F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\' frequency '\' 'perms.mat'],'perms');
 end
 % Extract FC matrices for network plotting
+
+cd('F:\WJD\Simon Dynamic FC\Results\ICA\HC_PD_CAT\beta\winsize_step')
+ftrialname = dir('*.mat');
+bigmat = zeros(148, 148, 10, length(ftrialname));
+
+
+
+corrmat = zeros(3,3,10);
+for neti = 1:10
+    for rowi = 1:9
+        for coli = 1:9
+            
+            A = reshape(mean(bigmat(:,:,neti,rowi),3), 1, []);
+            B = reshape(mean(bigmat(:,:,neti,coli),3), 1, []);
+            corrmat(rowi, coli, neti) = corr(A',B');
+        end
+    end
+end
+
+imagesc(squeeze(mean(corrmat, 3)))
