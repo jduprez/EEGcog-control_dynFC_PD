@@ -7,7 +7,7 @@ path_base = 'F:\WJD\Simon Dynamic FC';
 mri_template = 'icbm'; % 'colin' for Colin27 or 'icbm' for ICBM152
 atlas = 'destrieux'; % 'desikan' for Desikan68 atlas or 'destrieux' for Destrieux148 atlas
 srate = 1000; % Define sampling rate
-frequency = 'beta';
+frequency = 'gamma';
 
 % Automatically add folders and subfolders (Code and Inputs) necessary for
 % loading variables and executing codes
